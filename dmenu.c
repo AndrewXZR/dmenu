@@ -28,9 +28,7 @@
 #define NUMBERSBUFSIZE        (NUMBERSMAXDIGITS * 2) + 1
 
 /* enums */
-enum { SchemeNorm, SchemeSel, SchemeNormHighlight, SchemeSelHighlight,
-       SchemeOut, SchemeLast }; /* color schemes */
-
+enum { SchemeNorm, SchemeSel, SchemeOut, SchemeNormHighlight, SchemeSelHighlight, SchemeOutHighlight, SchemeLast }; /* color schemes */
 
 struct item {
 	char *text;
@@ -149,37 +147,37 @@ cistrstr(const char *h, const char *n)
 static void
 drawhighlights(struct item *item, int x, int y, int maxw)
 {
-	int i, indent;
-	char c, *highlight;
+	char restorechar, tokens[sizeof text], *highlight,  *token;
+	int indentx, highlightlen;
 
-	if (!(strlen(item->text) && strlen(text)))
-		return;
+	drw_setscheme(drw, scheme[item == sel ? SchemeSelHighlight : item->out ? SchemeOutHighlight : SchemeNormHighlight]);
+	strcpy(tokens, text);
+	for (token = strtok(tokens, " "); token; token = strtok(NULL, " ")) {
+		highlight = fstrstr(item->text, token);
+		while (highlight) {
+			// Move item str end, calc width for highlight indent, & restore
+			highlightlen = highlight - item->text;
+			restorechar = *highlight;
+			item->text[highlightlen] = '\0';
+			indentx = TEXTW(item->text);
+			item->text[highlightlen] = restorechar;
 
-	drw_setscheme(drw, scheme[item == sel
-	                   ? SchemeSelHighlight
-	                   : SchemeNormHighlight]);
-	for (i = 0, highlight = item->text; *highlight && text[i];) {
-		if (!fstrncmp(highlight, &text[i], 1)) {
-			/* get indentation */
-			c = *highlight;
-			*highlight = '\0';
-			indent = TEXTW(item->text);
-			*highlight = c;
+			// Move highlight str end, draw highlight, & restore
+			restorechar = highlight[strlen(token)];
+			highlight[strlen(token)] = '\0';
+			if (indentx - (lrpad / 2) - 1 < maxw)
+				drw_text(
+					drw,
+					x + indentx - (lrpad / 2) - 1,
+					y,
+					MIN(maxw - indentx, TEXTW(highlight) - lrpad),
+					bh, 0, highlight, 0
+				);
+			highlight[strlen(token)] = restorechar;
 
-			/* highlight character */
-			c = highlight[1];
-			highlight[1] = '\0';
-			drw_text(
-				drw,
-				x + indent - (lrpad / 2.),
-				y,
-				MIN(maxw - indent, TEXTW(highlight) - lrpad),
-				bh, 0, highlight, 0
-			);
-			highlight[1] = c;
-			++i;
+			if (strlen(highlight) - strlen(token) < strlen(token)) break;
+			highlight = fstrstr(highlight + strlen(token), token);
 		}
-		++highlight;
 	}
 }
 
